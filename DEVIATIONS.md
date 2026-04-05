@@ -25,3 +25,11 @@ The host machine has a system Postgres running on port 5432. Docker Compose maps
 ## 5. dotenv override: true
 
 The system has a PORT environment variable (set by the IDE/shell). `dotenv.config({ override: true })` is used in server.ts so that `.env` values take precedence over system env vars locally.
+
+## 6. Next.js 15.5.14 with Tailwind CSS v4
+
+Next.js 15.x matches BUILD_PLAN. However, `create-next-app@15` scaffolds with Tailwind CSS v4 (`@import "tailwindcss"` syntax, `@tailwindcss/postcss` plugin) instead of Tailwind v3 as BUILD_PLAN expected. This works fine with Turbopack (default dev server).
+
+## 7. NODE_ENV=development in frontend dev script
+
+The system has `NODE_ENV=production` set globally. Next.js refuses to start dev mode with non-standard NODE_ENV. The frontend `dev` script explicitly sets `NODE_ENV=development`.
