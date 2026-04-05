@@ -2,10 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": { "node": ">=20.0.0 <21.0.0" },
   "scripts": {
     "dev": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "bash start.sh",
     "test": "vitest run",
     "seed": "ts-node prisma/seed.ts",
     "generate-sample": "ts-node scripts/generate-sample.ts"

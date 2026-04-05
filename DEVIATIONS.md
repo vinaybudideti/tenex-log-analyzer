@@ -33,3 +33,15 @@ Next.js 15.x matches BUILD_PLAN. However, `create-next-app@15` scaffolds with Ta
 ## 7. NODE_ENV=development in frontend dev script
 
 The system has `NODE_ENV=production` set globally. Next.js refuses to start dev mode with non-standard NODE_ENV. The frontend `dev` script explicitly sets `NODE_ENV=development`.
+
+## 8. Node 20 LTS pinned for production compatibility
+
+`next build` fails on Node 22.13.1 with `TypeError: generate is not a function` in `generate-build-id.js`. Node 20 LTS is pinned via `.nvmrc` files and `engines` field in both package.json files to ensure Railway uses a compatible Node version. Local development machine runs Node 22 but only uses `next dev` (Turbopack) which is unaffected.
+
+## 9. next.config.ts renamed to next.config.js
+
+Next.js 15.5.14 on this machine doesn't detect `.ts` config files (the `find-config` loader returns `undefined`). Converted to `.js` with CommonJS `module.exports`. Added `output: 'standalone'` for Railway deployment.
+
+## 10. frontend npm omit=dev
+
+The system npm has `omit=dev` globally configured. Development dependencies (TypeScript, ESLint, Tailwind) require `npm install --include=dev` to install locally. Railway's build environment does not have this setting.
