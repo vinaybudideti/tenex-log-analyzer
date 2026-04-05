@@ -1,9 +1,10 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
-import { useMe, useSummary } from '@/lib/hooks';
+import { useMe, useSummary, useIncidents, useTimeline } from '@/lib/hooks';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
-import { severityBorder } from '@/lib/ui-helpers';
+import { IncidentCard } from '@/components/IncidentCard';
+import { Timeline } from '@/components/Timeline';
 import { formatTime } from '@/lib/ui-helpers';
 
 const SEVERITY_CARDS: { key: 'critical' | 'high' | 'medium' | 'low'; label: string; color: string; border: string }[] = [
@@ -20,6 +21,8 @@ export default function UploadDashboardPage() {
 
   const { data: meData, isLoading: meLoading, error: meError } = useMe();
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useSummary(uploadId);
+  const { data: incidentsData, isLoading: incidentsLoading, error: incidentsError, refetch: refetchIncidents } = useIncidents(uploadId);
+  const { data: timelineData, isLoading: timelineLoading, error: timelineError, refetch: refetchTimeline } = useTimeline(uploadId);
 
   // Auth redirect
   if (meError) {
@@ -111,20 +114,48 @@ export default function UploadDashboardPage() {
           <EmptyState logCount={upload.logCount} />
         ) : (
           <>
-            {/* Incidents section - populated in Batch B */}
-            <section className="mb-8">
-              <h3 className="text-lg font-semibold mb-4">Incidents ({counts.total} findings)</h3>
-              <div className="bg-zinc-900 rounded-lg p-6 border border-zinc-800 text-zinc-500">
-                Incident cards loading in next batch...
-              </div>
-            </section>
-
-            {/* Timeline section - populated in Batch B */}
+            {/* Timeline */}
             <section className="mb-8">
               <h3 className="text-lg font-semibold mb-4">Timeline</h3>
-              <div className="bg-zinc-900 rounded-lg p-6 border border-zinc-800 text-zinc-500">
-                Timeline loading in next batch...
-              </div>
+              {timelineLoading ? (
+                <LoadingState message="Loading timeline..." />
+              ) : timelineError ? (
+                <div className="bg-zinc-900 rounded-lg p-6 border border-zinc-800">
+                  <p className="text-red-400 text-sm">Failed to load timeline</p>
+                  <button type="button" onClick={() => refetchTimeline()} className="text-sm text-blue-400 hover:text-blue-300 mt-2">
+                    Retry
+                  </button>
+                </div>
+              ) : timelineData && timelineData.startTime && timelineData.endTime ? (
+                <Timeline
+                  events={timelineData.events}
+                  startTime={timelineData.startTime}
+                  endTime={timelineData.endTime}
+                />
+              ) : null}
+            </section>
+
+            {/* Incidents */}
+            <section className="mb-8">
+              <h3 className="text-lg font-semibold mb-4">
+                Incidents ({incidentsData?.incidents.length ?? '...'})
+              </h3>
+              {incidentsLoading ? (
+                <LoadingState message="Loading incidents..." />
+              ) : incidentsError ? (
+                <div className="bg-zinc-900 rounded-lg p-6 border border-zinc-800">
+                  <p className="text-red-400 text-sm">Failed to load incidents</p>
+                  <button type="button" onClick={() => refetchIncidents()} className="text-sm text-blue-400 hover:text-blue-300 mt-2">
+                    Retry
+                  </button>
+                </div>
+              ) : incidentsData ? (
+                <div className="space-y-4">
+                  {incidentsData.incidents.map(incident => (
+                    <IncidentCard key={incident.id} incident={incident} />
+                  ))}
+                </div>
+              ) : null}
             </section>
           </>
         )}
