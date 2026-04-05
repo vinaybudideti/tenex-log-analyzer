@@ -13,7 +13,10 @@ const adapter = new PrismaPg(process.env.DATABASE_URL!);
 const prisma = new PrismaClient({ adapter });
 
 const CHUNK_SIZE = 500;
-const SAMPLE_FILE = path.resolve(__dirname, '../../example-logs/zscaler-sample.jsonl');
+// Check local (Docker) path first, then project root path
+const LOCAL_SAMPLE = path.resolve(__dirname, '../example-logs/zscaler-sample.jsonl');
+const ROOT_SAMPLE = path.resolve(__dirname, '../../example-logs/zscaler-sample.jsonl');
+const SAMPLE_FILE = fs.existsSync(LOCAL_SAMPLE) ? LOCAL_SAMPLE : ROOT_SAMPLE;
 
 async function main() {
   // 1. Seed user

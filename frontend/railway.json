@@ -1,4 +1,4 @@
 {
-  "build": { "builder": "NIXPACKS" },
-  "deploy": { "startCommand": "npm start", "restartPolicyType": "ON_FAILURE" }
+  "build": { "builder": "DOCKERFILE", "dockerfilePath": "Dockerfile" },
+  "deploy": { "restartPolicyType": "ON_FAILURE" }
 }
