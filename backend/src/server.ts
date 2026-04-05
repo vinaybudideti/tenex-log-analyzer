@@ -6,6 +6,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import authRoutes from './routes/auth';
+import uploadRoutes from './routes/uploads';
 
 // Startup env validation
 const REQUIRED_ENV = ['DATABASE_URL', 'JWT_SECRET', 'ANTHROPIC_API_KEY'] as const;
@@ -36,6 +37,7 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 app.use('/api/auth', authRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Error handling middleware (must be last)
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
