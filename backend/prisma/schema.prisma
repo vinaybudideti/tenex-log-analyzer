@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  uploads      Upload[]
+}
+
+model Upload {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  filename     String
+  sizeBytes    Int
+  logCount     Int
+  parseErrors  Int        @default(0)
+  status       String     @default("processing")
+  errorMessage String?
+  createdAt    DateTime   @default(now())
+  completedAt  DateTime?
+  logs         LogEntry[]
+  findings     Finding[]
+  incidents    Incident[]
+
+  @@index([userId, createdAt])
+}
+
+model LogEntry {
+  id             String   @id @default(cuid())
+  uploadId       String
+  upload         Upload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  epochTime      Int
+  normalizedTime DateTime
+  sourceIp       String
+  destHost       String
+  url            String
+  method         String
+  respCode       Int
+  reqSize        Int
+  respSize       Int
+  totalSize      Int
+  action         String
+  riskScore      Int
+  threatSeverity String
+  threatName     String
+  appClass       String
+  urlClass       String
+  login          String?
+  rawJson        Json
+
+  @@index([uploadId, normalizedTime])
+  @@index([uploadId, sourceIp])
+  @@index([uploadId, destHost])
+}
+
+model Finding {
+  id             String    @id @default(cuid())
+  uploadId       String
+  upload         Upload    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  incidentId     String?
+  incident       Incident? @relation(fields: [incidentId], references: [id])
+  techniqueId    String
+  techniqueName  String
+  severity       String
+  confidence     Int
+  sourceIp       String?
+  destHost       String?
+  reason         String
+  evidenceLogIds Json
+  startTime      DateTime
+  endTime        DateTime
+  createdAt      DateTime  @default(now())
+
+  @@index([uploadId, severity])
+  @@index([uploadId, startTime])
+  @@index([incidentId])
+}
+
+model Incident {
+  id               String    @id @default(cuid())
+  uploadId         String
+  upload           Upload    @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  title            String
+  severity         String
+  whatHappened      String
+  whyItMatters     String
+  investigateNext  Json
+  suggestedContain String?
+  startTime        DateTime
+  endTime          DateTime
+  aiGenerated      Boolean   @default(true)
+  findings         Finding[]
+  createdAt        DateTime  @default(now())
+
+  @@index([uploadId, severity])
+  @@index([uploadId, startTime])
+}
