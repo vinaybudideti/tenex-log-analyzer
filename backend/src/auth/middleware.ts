@@ -8,7 +8,12 @@ declare global {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const token = req.cookies?.tenex_session;
+  const cookieToken = req.cookies?.tenex_session;
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : null;
+  const token = bearerToken || cookieToken;
   if (!token) return res.status(401).json({ error: 'Not authenticated' });
   try {
     const payload = verifyToken(token);

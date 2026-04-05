@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMe, useUploads } from '@/lib/hooks';
+import { api } from '@/lib/api';
 import { LoadingState } from '@/components/LoadingState';
 import { formatTime } from '@/lib/ui-helpers';
 
@@ -26,10 +27,7 @@ export default function DashboardPage() {
   const uploads = uploadsData?.uploads ?? [];
 
   async function handleLogout() {
-    await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await api.logout();
     router.replace('/login');
   }
 

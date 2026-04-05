@@ -1,6 +1,7 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
 import { useMe, useSummary, useIncidents, useTimeline } from '@/lib/hooks';
+import { api } from '@/lib/api';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
 import { IncidentCard } from '@/components/IncidentCard';
@@ -53,10 +54,7 @@ export default function UploadDashboardPage() {
   const { upload, counts } = summary;
 
   async function handleLogout() {
-    await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await api.logout();
     router.replace('/login');
   }
 

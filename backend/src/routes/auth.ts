@@ -38,7 +38,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     sameSite: isProd ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000,
   });
-  res.json({ user: { id: user.id, email: user.email } });
+  res.json({ user: { id: user.id, email: user.email }, token });
 });
 
 router.post('/logout', (_, res) => {

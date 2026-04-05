@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-
-const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { api } from '@/lib/api';
 const ACCEPTED_EXTENSIONS = '.jsonl,.json,.log,.txt';
 const STATUS_MESSAGES = [
   'Uploading file...',
@@ -24,11 +23,7 @@ export default function UploadPage() {
 
   // Auth check
   useEffect(() => {
-    fetch(`${BACKEND}/api/auth/me`, { credentials: 'include' })
-      .then(res => {
-        if (!res.ok) throw new Error('Not authenticated');
-        return res.json();
-      })
+    api.me()
       .then(data => { setUser(data.user); setAuthChecked(true); })
       .catch(() => router.replace('/login'));
   }, [router]);
@@ -80,29 +75,7 @@ export default function UploadPage() {
     setError('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const res = await fetch(`${BACKEND}/api/uploads`, {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-
-      if (res.status === 413) {
-        throw new Error('File too large. Maximum size is 10 MB.');
-      }
-      if (res.status === 401) {
-        router.replace('/login');
-        return;
-      }
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || `Upload failed (HTTP ${res.status})`);
-      }
-
-      const data = await res.json();
-      console.log('Upload complete:', data);
+      const data = await api.uploadFile(file);
 
       // Wait 3 seconds for pipeline stub, then redirect
       await new Promise(resolve => setTimeout(resolve, 3000));
@@ -114,10 +87,7 @@ export default function UploadPage() {
   }
 
   async function handleLogout() {
-    await fetch(`${BACKEND}/api/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await api.logout();
     router.replace('/login');
   }
 
