@@ -10,6 +10,23 @@ AI-powered SOC triage tool that analyzes Zscaler web proxy logs, detects threats
 
 ---
 
+## Table of Contents
+
+- [What This Does](#what-this-does)
+- [How It Works](#how-it-works)
+- [Detection Rules](#detection-rules)
+- [How AI Is Used](#how-ai-is-used)
+- [Example Log Files for Testing](#example-log-files-for-testing)
+- [Local Setup](#local-setup)
+- [Environment Variables](#environment-variables)
+- [API Endpoints](#api-endpoints)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Production Roadmap](#production-roadmap)
+- [Tech Stack](#tech-stack)
+
+---
+
 ## What This Does
 
 Upload a Zscaler JSONL log file and get a fully triaged incident dashboard in under 30 seconds. The tool parses up to 10,000 log entries, runs four deterministic detection rules to identify threats, then uses Claude to group related findings into incidents and write L2 analyst handoff tickets with specific IPs, hostnames, and recommended next steps.
@@ -28,33 +45,84 @@ The analysis pipeline has three stages:
 
 **Stage 3 -- AI Analyst Handoff.** For each incident, Claude writes an escalation ticket citing specific IPs, hostnames, and timestamps from the evidence. Each ticket includes what happened, why it matters, three concrete investigation steps, and a containment recommendation. If Claude is unavailable, a deterministic fallback generates basic tickets grouped by source IP.
 
+```
+Upload (.jsonl) --> Parse & Store --> Detect (4 rules) --> Group (Claude) --> Handoff (Claude) --> Dashboard
+                                          |                     |                  |
+                                     Findings             Incidents          AI Analyst
+                                   (deterministic)      (AI-grouped)         Tickets
+```
+
 ---
 
 ## Detection Rules
 
-**Beaconing (MITRE T1071.001).** Identifies automated callback patterns by measuring the regularity of connections between source-destination pairs. For each pair with 15 or more connections, the rule computes the coefficient of variation (CV) of inter-connection intervals. A CV below 0.35 indicates machine-like regularity rather than human browsing. The confidence score scales inversely with CV, so perfectly regular 60-second beacons score near 95% while slightly jittered patterns score lower.
+Each rule is a pure TypeScript function with unit tests. No AI is involved in detection.
 
-**Data Exfiltration (MITRE T1041).** Flags abnormally large outbound data transfers. The rule computes total bytes transferred per source-destination pair, then compares each pair against the median across all pairs. A finding is raised when a pair exceeds both 50 MB total and 10x the median volume. This dual threshold prevents false positives from legitimate large downloads while catching true outliers like a host uploading 160 MB to a file-sharing service.
+### Beaconing (MITRE T1071.001)
 
-**Credential Stuffing and Password Spraying (MITRE T1110.003 / T1110.004).** Detects automated authentication attacks by identifying clusters of failed login attempts. The rule filters for POST requests to authentication endpoints (URLs matching login, signin, auth, oauth, or sso) that return 401 or 403. When a single source IP generates failures across 3 or more distinct paths, it is classified as password spraying. When failures concentrate on a single path but exceed 10 attempts, it is classified as credential stuffing.
+Identifies automated callback patterns by measuring the regularity of connections between source-destination pairs. For each pair with 15 or more connections, the rule computes the coefficient of variation (CV) of inter-connection intervals. A CV below 0.35 indicates machine-like regularity rather than human browsing. The confidence score scales inversely with CV, so perfectly regular 60-second beacons score near 95% while slightly jittered patterns score lower.
 
-**High-Risk Allowed Traffic (MITRE T1071).** Catches policy gaps where high-risk connections were permitted through the proxy. The rule flags any connection with a Zscaler risk score of 75 or above, or a threat severity of High or Critical, that has an action of Allowed. These represent connections that the proxy evaluated as dangerous but did not block, indicating a potential security policy misconfiguration.
+### Data Exfiltration (MITRE T1041)
+
+Flags abnormally large outbound data transfers. The rule computes total bytes transferred per source-destination pair, then compares each pair against the median across all pairs. A finding is raised when a pair exceeds both 50 MB total and 10x the median volume. This dual threshold prevents false positives from legitimate large downloads while catching true outliers like a host uploading 160 MB to a file-sharing service.
+
+### Credential Stuffing and Password Spraying (MITRE T1110.003 / T1110.004)
+
+Detects automated authentication attacks by identifying clusters of failed login attempts. The rule filters for POST requests to authentication endpoints (URLs matching login, signin, auth, oauth, or sso) that return 401 or 403. When a single source IP generates failures across 3 or more distinct paths, it is classified as password spraying. When failures concentrate on a single path but exceed 10 attempts, it is classified as credential stuffing.
+
+### High-Risk Allowed Traffic (MITRE T1071)
+
+Catches policy gaps where high-risk connections were permitted through the proxy. The rule flags any connection with a Zscaler risk score of 75 or above, or a threat severity of High or Critical, that has an action of Allowed. These represent connections that the proxy evaluated as dangerous but did not block, indicating a potential security policy misconfiguration.
 
 ---
 
 ## How AI Is Used
 
-Claude is used exclusively in Stages 2 and 3 of the pipeline. It does not perform detection. This design separates deterministic analysis (which must be reproducible and testable) from narrative generation (which benefits from language understanding).
+Claude is used exclusively in Stages 2 and 3 of the pipeline. **It does not perform detection.** This design separates deterministic analysis (which must be reproducible and testable) from narrative generation (which benefits from language understanding).
 
-The grouping prompt instructs Claude to cluster findings by shared source IP within a 30-minute window or by logical attack chain. The handoff prompt instructs Claude to write concise SOC-style escalation tickets that cite specific evidence. Both prompts enforce JSON-only output with Zod schema validation. If Claude returns malformed output or is unavailable, the fallback module groups findings by source IP and generates template-based tickets without AI.
+| Stage | What Claude Does | Input | Output | Fallback if Claude Fails |
+|---|---|---|---|---|
+| Stage 2: Grouping | Clusters related findings into incidents | All findings as JSON | Incident groups with titles and severity | Group by source IP deterministically |
+| Stage 3: Handoff | Writes L2 analyst escalation tickets | Incident + evidence logs | What happened, why it matters, 3 next steps, containment | Template-based tickets with source IP |
 
-The model used is `claude-sonnet-4-5`. Each upload triggers one grouping call and one handoff call per incident, typically 2-6 API calls total.
+**Prompts and validation:**
+- The grouping prompt instructs Claude to cluster findings by shared source IP within a 30-minute window or by logical attack chain.
+- The handoff prompt instructs Claude to write concise SOC-style escalation tickets that cite specific evidence.
+- Both prompts enforce JSON-only output validated against Zod schemas.
+- If Claude returns malformed output or is unavailable, the fallback module groups findings by source IP and generates template-based tickets without AI.
+
+**Model:** `claude-sonnet-4-5` via the Anthropic SDK. Each upload triggers one grouping call and one handoff call per incident, typically 2-6 API calls total.
+
+---
+
+## Example Log Files for Testing
+
+Two synthetic Zscaler log files are included in the repository for testing. You can upload either file through the web interface after logging in.
+
+| File | Location | Events | Attack Scenarios |
+|---|---|---|---|
+| Sample v1 | `example-logs/zscaler-sample.jsonl` | 1,500 | Beacon to `c2.attacker.xyz`, exfil to `transfer.sh`, password spray on `okta.safemarch.com`, high-risk allowed traffic |
+| Sample v2 | `example-logs/zscaler-sample-v2.jsonl` | 1,500 | Beacon to `c2.evilbeacon.net`, exfil to `upload.anonfiles.io`, password spray on `auth.corpacme.net`, high-risk allowed traffic |
+
+Both files contain 1,350 benign entries (normal business browsing) mixed with 150 malicious entries that trigger all four detection rules. The attack traffic is concentrated in specific time windows to produce a visually interesting timeline.
+
+**To generate fresh sample data:**
+
+```bash
+cd backend
+npm run generate-sample       # creates example-logs/zscaler-sample.jsonl
+npm run generate-sample-v2    # creates example-logs/zscaler-sample-v2.jsonl
+```
 
 ---
 
 ## Local Setup
 
-These instructions work on macOS, Linux, and Windows (WSL). You need [Node.js 22+](https://nodejs.org/), [Docker](https://www.docker.com/products/docker-desktop/), and [Git](https://git-scm.com/).
+These instructions work on **macOS**, **Linux**, and **Windows (WSL)**. You need three things installed:
+
+- [Node.js 22+](https://nodejs.org/) (run `node --version` to check)
+- [Docker](https://www.docker.com/products/docker-desktop/) (run `docker --version` to check)
+- [Git](https://git-scm.com/) (run `git --version` to check)
 
 ### Step 1: Clone the repository
 
@@ -65,7 +133,7 @@ cd tenex-log-analyzer
 
 ### Step 2: Start the database
 
-Make sure Docker is running, then start PostgreSQL:
+Make sure Docker Desktop is running, then start PostgreSQL:
 
 ```bash
 docker compose up -d
@@ -92,8 +160,8 @@ Open `backend/.env` in a text editor and fill in your values:
 
 | Variable | What to put |
 |---|---|
-| `DATABASE_URL` | Keep the default (`postgresql://tenex:tenex@localhost:5433/tenex?schema=public`) |
-| `JWT_SECRET` | Run `openssl rand -hex 32` and paste the output |
+| `DATABASE_URL` | Keep the default: `postgresql://tenex:tenex@localhost:5433/tenex?schema=public` |
+| `JWT_SECRET` | Run `openssl rand -hex 32` in your terminal and paste the output |
 | `ANTHROPIC_API_KEY` | Your API key from [console.anthropic.com](https://console.anthropic.com) |
 | `FRONTEND_URL` | Keep `http://localhost:3000` |
 | `PORT` | Keep `4000` |
@@ -114,7 +182,7 @@ npm run generate-sample
 npm run seed
 ```
 
-The first command creates a synthetic Zscaler log file with 1,500 events including beacon traffic, data exfiltration, credential attacks, and high-risk connections. The second command creates a demo user and loads the sample data.
+The first command creates a synthetic Zscaler log file with 1,500 events including beacon traffic, data exfiltration, credential attacks, and high-risk connections. The second command creates a demo user (`admin@tenex.demo` / `Demo1234!`) and loads the sample data into the database.
 
 ### Step 5: Start the backend
 
@@ -122,9 +190,9 @@ The first command creates a synthetic Zscaler log file with 1,500 events includi
 npm run dev
 ```
 
-The backend starts on `http://localhost:4000`. Leave this terminal running.
+The backend starts on `http://localhost:4000`. **Leave this terminal running.**
 
-Verify it works:
+Verify it works by opening a new terminal and running:
 
 ```bash
 curl http://localhost:4000/api/health
@@ -134,7 +202,7 @@ You should see `{"ok":true}`.
 
 ### Step 6: Set up the frontend
 
-Open a new terminal:
+Open a **new terminal window** (keep the backend terminal running):
 
 ```bash
 cd frontend
@@ -156,9 +224,9 @@ The frontend starts on `http://localhost:3000`.
 
 1. Go to [http://localhost:3000](http://localhost:3000) in your browser
 2. You will be redirected to the login page
-3. Log in with `admin@tenex.demo` / `Demo1234!`
-4. Click the demo upload to see the incident dashboard
-5. Or click "Upload New" to upload your own Zscaler log file
+3. Log in with username `admin@tenex.demo` and password `Demo1234!`
+4. Click the demo upload card to see the incident dashboard with 5 AI-analyzed incidents
+5. Or click **Upload New** to upload your own Zscaler log file (try `example-logs/zscaler-sample-v2.jsonl`)
 
 ### Running tests
 
@@ -167,7 +235,7 @@ cd backend
 npm test
 ```
 
-This runs 12 unit tests across the four detection rules.
+This runs 12 unit tests across the four detection rules (3 tests per rule).
 
 ---
 
@@ -178,45 +246,112 @@ This runs 12 unit tests across the four detection rules.
 | Variable | Required | Description |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | At least 32 characters. Used to sign auth tokens |
-| `ANTHROPIC_API_KEY` | Yes | Claude API key from console.anthropic.com |
-| `FRONTEND_URL` | Yes | Frontend origin for CORS (`http://localhost:3000` locally) |
-| `PORT` | No | Server port (default: 4000) |
+| `JWT_SECRET` | Yes | At least 32 characters. Used to sign authentication tokens |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key from [console.anthropic.com](https://console.anthropic.com) |
+| `FRONTEND_URL` | Yes | Frontend origin for CORS. Use `http://localhost:3000` locally |
+| `PORT` | No | Server port. Default: `4000` |
 | `NODE_ENV` | No | `development` or `production` |
 
 ### Frontend (`frontend/.env.local`)
 
 | Variable | Required | Description |
 |---|---|---|
-| `NEXT_PUBLIC_BACKEND_URL` | Yes | Backend API URL (`http://localhost:4000` locally) |
+| `NEXT_PUBLIC_BACKEND_URL` | Yes | Backend API URL. Use `http://localhost:4000` locally |
+
+---
+
+## API Endpoints
+
+All endpoints return JSON. Authentication is via Bearer token in the `Authorization` header.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | No | Login with email + password. Returns JWT token |
+| `POST` | `/api/auth/logout` | Yes | Clears session |
+| `GET` | `/api/auth/me` | Yes | Returns current user |
+| `POST` | `/api/uploads` | Yes | Upload a log file (multipart/form-data) |
+| `GET` | `/api/uploads` | Yes | List user's uploads |
+| `GET` | `/api/uploads/:id/summary` | Yes | Upload metadata + severity counts |
+| `GET` | `/api/uploads/:id/incidents` | Yes | Incidents with nested findings and evidence |
+| `GET` | `/api/uploads/:id/timeline` | Yes | Timeline events for visualization |
+| `GET` | `/api/health` | No | Health check |
 
 ---
 
 ## Architecture
 
 ```
-Browser (Next.js 15)
-  |
-  |-- POST /api/auth/login -----> Express 5 API
-  |-- POST /api/uploads --------> Multer -> Zscaler Parser -> Postgres
-  |                                  |
-  |                                  v
-  |                            Detection Rules (4)
-  |                                  |
-  |                                  v
-  |                            Claude Grouping (Stage 2)
-  |                                  |
-  |                                  v
-  |                            Claude Handoff (Stage 3)
-  |                                  |
-  |                                  v
-  |-- GET /api/uploads/:id/* ---> Incidents + Findings + Evidence
-  |
-  v
-Dashboard: Severity Cards, Incident Cards, Evidence Drill-in, Timeline
++------------------+         +------------------+         +------------------+
+|                  |  REST   |                  |  SQL    |                  |
+|   Next.js 15     +-------->+   Express 5      +-------->+  PostgreSQL 16   |
+|   (Frontend)     |  API    |   (Backend)      |  Prisma |  (Database)      |
+|                  |<--------+                  |<--------+                  |
++------------------+         +--------+---------+         +------------------+
+                                      |
+                                      | Anthropic SDK
+                                      v
+                             +------------------+
+                             |                  |
+                             |  Claude Sonnet   |
+                             |  (AI Analysis)   |
+                             |                  |
+                             +------------------+
 ```
 
-The frontend is a Next.js 15 app with React Query for data fetching. The backend is an Express 5 API with Prisma ORM connected to PostgreSQL. Authentication uses JWT tokens sent as Bearer headers. File uploads are processed synchronously (parse + insert), then the analysis pipeline runs asynchronously (detect + group + handoff).
+**Frontend (Next.js 15):** React 19 with App Router, TypeScript, Tailwind CSS 4 for styling, React Query 5 for server state management. Pages: login, upload (drag-drop with real-time polling), dashboard (uploads list), and dashboard/[uploadId] (incident analysis with severity cards, incident cards, evidence drill-in, timeline).
+
+**Backend (Express 5):** TypeScript with strict mode, Prisma 7 ORM for database access, Zod 4 for request/response validation, multer for file uploads. Four deterministic detection rules produce findings, then Claude groups and writes analyst handoffs. JWT authentication with Bearer tokens and argon2id password hashing.
+
+**Database (PostgreSQL 16):** Five tables: User, Upload, LogEntry, Finding, Incident. Indexed on uploadId, sourceIp, severity, and timestamps for fast queries. LogEntry stores the full raw JSON for evidence drill-in.
+
+**AI (Claude Sonnet 4.5):** Called via the Anthropic SDK for incident grouping and analyst handoff generation. Prompts enforce JSON-only output validated against Zod schemas. Deterministic fallback generates basic incidents if Claude is unavailable.
+
+---
+
+## Project Structure
+
+```
+tenex-log-analyzer/
+├── backend/
+│   ├── src/
+│   │   ├── auth/            # JWT, argon2id password, middleware
+│   │   ├── detection/       # 4 detection rules + orchestrator
+│   │   │   ├── beaconing.ts
+│   │   │   ├── exfil.ts
+│   │   │   ├── credStuffing.ts
+│   │   │   ├── highRisk.ts
+│   │   │   └── index.ts     # runAllDetections()
+│   │   ├── llm/             # Claude integration
+│   │   │   ├── claude.ts    # API client
+│   │   │   ├── prompts.ts   # Grouping + handoff prompts
+│   │   │   ├── fallback.ts  # Deterministic fallback
+│   │   │   └── pipeline.ts  # 3-stage orchestrator
+│   │   ├── parser/          # Zscaler log parser
+│   │   ├── routes/          # Express route handlers
+│   │   ├── schemas/         # Zod validation schemas
+│   │   ├── lib/prisma.ts    # Centralized DB client
+│   │   └── server.ts        # Express app entry point
+│   ├── tests/               # Vitest unit tests (12 tests)
+│   ├── prisma/              # Schema + seed script
+│   └── scripts/             # Sample data generators
+├── frontend/
+│   ├── app/                 # Next.js App Router pages
+│   │   ├── login/           # Authentication
+│   │   ├── upload/          # File upload with polling
+│   │   └── dashboard/       # Uploads list + incident analysis
+│   ├── components/          # Reusable UI components
+│   │   ├── IncidentCard.tsx
+│   │   ├── FindingEvidence.tsx
+│   │   ├── Timeline.tsx
+│   │   ├── SeverityBadge.tsx
+│   │   ├── EmptyState.tsx
+│   │   └── LoadingState.tsx
+│   └── lib/                 # API client, hooks, types, helpers
+├── example-logs/            # Sample log files for testing
+│   ├── zscaler-sample.jsonl
+│   └── zscaler-sample-v2.jsonl
+└── docker-compose.yml       # Local PostgreSQL
+```
 
 ---
 
