@@ -79,7 +79,7 @@ export default function UploadDashboardPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Upload metadata */}
         <div className="mb-8">
-          <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">← Back to uploads</Link>
+          <Link href="/dashboard" className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 hover:text-zinc-100 transition-colors">← Back to uploads</Link>
           <h2 className="text-2xl font-bold mb-1 mt-2">{upload.filename}</h2>
           <div className="flex items-center gap-4 text-sm text-zinc-400">
             <span>{upload.logCount.toLocaleString()} log entries</span>

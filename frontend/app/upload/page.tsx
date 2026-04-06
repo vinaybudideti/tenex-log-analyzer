@@ -118,7 +118,7 @@ export default function UploadPage() {
 
       {/* Upload area */}
       <main className="max-w-2xl mx-auto mt-16 px-6">
-        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">← Back to dashboard</Link>
+        <Link href="/dashboard" className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-zinc-300 bg-zinc-800 border border-zinc-700 rounded-md hover:bg-zinc-700 hover:text-zinc-100 transition-colors">← Back to dashboard</Link>
         <h2 className="text-2xl font-bold mb-2 mt-2">Upload Log File</h2>
         <p className="text-zinc-400 mb-8">
           Upload a Zscaler web proxy log file (.jsonl, .json, .log, .txt) up to 10 MB.
