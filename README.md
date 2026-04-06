@@ -6,7 +6,7 @@ AI-powered SOC triage tool that analyzes Zscaler web proxy logs, detects threats
 
 **Demo Credentials:** username: `admin@tenex.demo` & password: `Demo1234!`
 
-**Video Walkthrough:** PLACEHOLDER_VIDEO_URL
+**Video Walkthrough:** [PLACEHOLDER_VIDEO_URL](https://drive.google.com/file/d/11yESIXgRyzb_KGWMEl6Eq2MLF1QUsBjr/view?usp=sharing)
 
 ---
 
