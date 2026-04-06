@@ -9,7 +9,8 @@
     "start": "bash start.sh",
     "test": "vitest run",
     "seed": "ts-node prisma/seed.ts",
-    "generate-sample": "ts-node scripts/generate-sample.ts"
+    "generate-sample": "ts-node scripts/generate-sample.ts",
+    "generate-sample-v2": "ts-node scripts/generate-sample-v2.ts"
   },
   "keywords": [],
   "author": "",
