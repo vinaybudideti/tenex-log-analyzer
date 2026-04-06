@@ -35,7 +35,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-        <h1 className="text-lg font-bold">Tenex Log Analyzer</h1>
+        <Link href="/dashboard" className="text-lg font-bold hover:text-zinc-300 transition-colors">Tenex Log Analyzer</Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-zinc-400">{meData?.user.email}</span>
           <button

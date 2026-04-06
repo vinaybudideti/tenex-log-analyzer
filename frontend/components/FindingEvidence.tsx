@@ -10,11 +10,13 @@ export function FindingEvidence({ evidence }: { evidence: LogEntrySample[] }) {
         Evidence ({evidence.length} log entries)
       </summary>
       <div className="mt-2 space-y-1">
-        {evidence.map(log => (
+        {evidence.map((log, idx) => (
           <div
             key={log.id}
             className="border-l-2 border-orange-500 pl-3 py-1 bg-zinc-900 rounded-r text-xs font-mono text-zinc-300"
           >
+            <span className="text-zinc-500">{idx + 1}.</span>
+            {' '}
             <span className="text-zinc-500">{formatTime(log.normalizedTime)}</span>
             {' · '}
             <span className="text-zinc-200">{log.sourceIp}</span>

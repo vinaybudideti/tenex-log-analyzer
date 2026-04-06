@@ -1,5 +1,6 @@
 'use client';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useMe, useSummary, useIncidents, useTimeline } from '@/lib/hooks';
 import { api } from '@/lib/api';
 import { LoadingState } from '@/components/LoadingState';
@@ -62,7 +63,7 @@ export default function UploadDashboardPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-        <h1 className="text-lg font-bold">Tenex Log Analyzer</h1>
+        <Link href="/dashboard" className="text-lg font-bold hover:text-zinc-300 transition-colors">Tenex Log Analyzer</Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-zinc-400">{meData?.user.email}</span>
           <button
@@ -78,7 +79,8 @@ export default function UploadDashboardPage() {
       <main className="max-w-6xl mx-auto px-6 py-8">
         {/* Upload metadata */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold mb-1">{upload.filename}</h2>
+          <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">← Back to uploads</Link>
+          <h2 className="text-2xl font-bold mb-1 mt-2">{upload.filename}</h2>
           <div className="flex items-center gap-4 text-sm text-zinc-400">
             <span>{upload.logCount.toLocaleString()} log entries</span>
             {upload.parseErrors > 0 && (

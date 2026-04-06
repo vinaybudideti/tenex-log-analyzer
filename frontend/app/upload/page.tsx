@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 const ACCEPTED_EXTENSIONS = '.jsonl,.json,.log,.txt';
 const STATUS_MESSAGES = [
@@ -103,7 +104,7 @@ export default function UploadPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
-        <h1 className="text-lg font-bold">Tenex Log Analyzer</h1>
+        <Link href="/dashboard" className="text-lg font-bold hover:text-zinc-300 transition-colors">Tenex Log Analyzer</Link>
         <div className="flex items-center gap-4">
           <span className="text-sm text-zinc-400">{user?.email}</span>
           <button
@@ -117,7 +118,8 @@ export default function UploadPage() {
 
       {/* Upload area */}
       <main className="max-w-2xl mx-auto mt-16 px-6">
-        <h2 className="text-2xl font-bold mb-2">Upload Log File</h2>
+        <Link href="/dashboard" className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors">← Back to dashboard</Link>
+        <h2 className="text-2xl font-bold mb-2 mt-2">Upload Log File</h2>
         <p className="text-zinc-400 mb-8">
           Upload a Zscaler web proxy log file (.jsonl, .json, .log, .txt) up to 10 MB.
         </p>
